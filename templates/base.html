@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Planificación</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="stylesheet" href="/static/style.css">
+    {% block head_extra %}{% endblock %}
+  </head>
+  <body>
+    <header>
+      <h1>Planificación</h1>
+      <nav>
+        <a class="nav-link" href="/">Proyectos</a>
+        <a class="nav-link" href="/calendar">Calendario</a>
+      </nav>
+    </header>
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+    {# Inline SVG sprite so Chrome applies styles and you can edit icons in templates/_sprite.svg #}
+    {% include '_sprite.svg' %}
+    <script src="/static/js/plan_modal.js"></script>
+  </body>
+</html>

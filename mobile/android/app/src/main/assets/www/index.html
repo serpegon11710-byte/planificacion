@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Planificación - Mobile</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Eventos (Semana actual + siguiente)</h1>
+    <div class="controls">
+      <input id="apiUrl" placeholder="API base (ej. /api/events)" />
+      <button id="sync">Sincronizar</button>
+      <button id="clearLocal">Borrar local</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="events">
+      <h2>Eventos</h2>
+      <div id="eventsContainer"></div>
+    </section>
+
+    <section id="notes">
+      <h2>Notas</h2>
+      <textarea id="noteText" placeholder="Escribe notas aquí..."></textarea>
+      <div class="note-actions">
+        <button id="saveNote">Guardar nota</button>
+        <button id="clearNote">Borrar nota</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

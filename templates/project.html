@@ -1,0 +1,468 @@
+{% extends 'base.html' %}
+{% block content %}
+  <article>
+    <h2>{{ project.name }}</h2>
+
+    <section class="project-section">
+      <h3>Proyecto</h3>
+      <div class="section-toolbar">
+        <button type="button" id="open-project-edit" title="Editar proyecto" aria-label="Editar proyecto" style="background:none;border:none;cursor:pointer;color:#0b5fff;display:inline-flex;align-items:center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm14.71-9.04a.996.996 0 0 0 0-1.41l-2.5-2.5a.996.996 0 1 0-1.41 1.41l2.5 2.5c.39.39 1.02.39 1.41 0z"/>
+          </svg>
+        </button>
+        <button type="button" id="open-project-delete" title="Eliminar proyecto" aria-label="Eliminar proyecto" style="background:none;border:none;cursor:pointer;color:#900;display:inline-flex;align-items:center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 6h18v2H3V6zm2 3h14l-1 11H6L5 9zm3-6h6v2H8V3z"/>
+          </svg>
+        </button>
+        <span class="project-name-chip">{{ project.name }}</span>
+      </div>
+      <p>
+        <strong>Fecha inicio:</strong>
+        {% if project.start_date %}
+          {{ project.start_date.strftime('%d/%m/%Y') }}
+        {% else %}
+          Sin fecha de inicio
+        {% endif %}
+      </p>
+      <p>
+        <strong>Fecha fin:</strong>
+        {% if project.end_date %}
+          {{ project.end_date.strftime('%d/%m/%Y') }}
+        {% else %}
+          Sin fecha de fin
+        {% endif %}
+      </p>
+    </section>
+    <section class="items-section">
+      <div class="section-header-row">
+        <h3>Items</h3>
+        <button type="button" id="open-item-add">Añadir item</button>
+      </div>
+      {% if form_error %}
+        <div style="background:#ffe6e6;border:1px solid #ffb3b3;padding:8px;border-radius:4px;margin-bottom:8px;color:#900">{{ form_error }}</div>
+      {% endif %}
+      {% if deleted_id %}
+        <div style="background:#fff4e5;border:1px solid #ffd39b;padding:8px;border-radius:4px;margin-bottom:8px;color:#663300">
+          Planificación eliminada.
+          <form method="post" action="{{ url_for('undelete_plan', plan_id=deleted_id) }}" style="display:inline">
+            <button type="submit">Deshacer</button>
+          </form>
+        </div>
+      {% endif %}
+
+      <div id="items-list" class="items-list-panel">
+        <ul>
+        {% for it in project.items %}
+          <li class="item-row">
+            <button type="button" class="open-item-modal" data-mode="edit" data-item-id="{{ it.id }}" data-item-name="{{ it.name|e }}" title="Editar item" aria-label="Editar item" style="background:none;border:none;cursor:pointer;color:#0b5fff;display:inline-flex;align-items:center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm14.71-9.04a.996.996 0 0 0 0-1.41l-2.5-2.5a.996.996 0 1 0-1.41 1.41l2.5 2.5c.39.39 1.02.39 1.41 0z"/>
+              </svg>
+            </button>
+            <button type="button" class="open-item-modal" data-mode="delete" data-item-id="{{ it.id }}" data-item-name="{{ it.name|e }}" title="Eliminar item" aria-label="Eliminar item" style="background:none;border:none;cursor:pointer;color:#900;display:inline-flex;align-items:center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 6h18v2H3V6zm2 3h14l-1 11H6L5 9zm3-6h6v2H8V3z"/>
+              </svg>
+            </button>
+            <button type="button" class="item-btn" data-id="{{ it.id }}">{{ it.name }}</button>
+          </li>
+        {% endfor %}
+        </ul>
+      </div>
+
+    </section>
+
+    <section class="plans-section">
+      <div id="item-details" class="item-details-host"></div>
+
+      {% for it in project.items %}
+        <div id="details-{{ it.id }}" style="display:none">
+          <div class="section-header-row plans-title-row">
+            <h3>Planificaciones de "{{ it.name }}"</h3>
+            <button type="button" class="open-plan-modal" data-mode="add" data-item-id="{{ it.id }}" data-item-name="{{ it.name|e }}">Añadir planificación</button>
+          </div>
+
+          <div class="plans-panel">
+            <ul>
+              {% for pl in it.plans if not pl.deleted and not pl.parent_plan_id %}
+              {% set plan_kind = 'once' if pl.kind == 'once' else (pl.freq or 'daily') %}
+              {% set plan_date = pl.start_dt.date().isoformat() if pl.kind == 'once' and pl.start_dt else '' %}
+              {% set plan_end = pl.end_dt.date().isoformat() if pl.kind == 'once' and pl.end_dt else '' %}
+              {% set plan_time = pl.start_dt.strftime('%H:%M') if pl.start_dt and pl.has_time else '' %}
+              {% set plan_all_day = '1' if (pl.all_day or not pl.has_time) else '0' %}
+              <li class="plan-row">
+                {% set is_once = (pl.kind == 'once') %}
+                {% set expired = is_once and pl.start_dt and (pl.start_dt.date() < today) and (not pl.completed) %}
+                {% if is_once %}
+                <button type="button" class="plan-toggle-btn" data-plan-id="{{ pl.id }}" title="{% if pl.completed %}Completado{% elif expired %}Vencido{% else %}Pendiente{% endif %}" aria-label="toggle-completed" style="background:none;border:none;cursor:pointer;display:inline-flex;align-items:center;margin-right:6px">
+                    {% if pl.completed %}
+                      <img class="icon-img icon-img--checked" src="{{ url_for('static', filename='icons/checkbox-checked.svg') }}" alt="Completado" style="display:inline-block;vertical-align:middle">
+                      <svg class="icon icon--checked" aria-hidden="true"><use href="#checkbox-checked"></use></svg>
+                    {% elif expired %}
+                      <img class="icon-img icon-img--expired" src="{{ url_for('static', filename='icons/triangle-expired.svg') }}" alt="Vencido" style="display:inline-block;vertical-align:middle">
+                      <svg class="icon icon--expired" aria-hidden="true"><use href="#triangle-expired"></use></svg>
+                    {% else %}
+                      <img class="icon-img icon-img--empty" src="{{ url_for('static', filename='icons/checkbox-empty.svg') }}" alt="Pendiente" style="display:inline-block;vertical-align:middle">
+                      <svg class="icon icon--empty" aria-hidden="true"><use href="#checkbox-empty"></use></svg>
+                    {% endif %}
+                </button>
+                {% else %}
+                <button type="button" class="open-exceptions-modal" data-plan-id="{{ pl.id }}" title="Ver excepciones" aria-label="Ver excepciones" style="background:none;border:none;cursor:pointer;display:inline-flex;align-items:center;width:32px;margin-right:6px;padding:4px">
+                  <img src="{{ url_for('static', filename='icons/exceptions-arrows.svg') }}" alt="Excepciones" width="20" height="20" style="display:block" />
+                </button>
+                {% endif %}
+                
+                <!-- plan edit/delete buttons -->
+                <button
+                  type="button"
+                  class="open-plan-modal"
+                  title="Editar"
+                  aria-label="Editar"
+                  data-mode="edit"
+                  data-plan-id="{{ pl.id }}"
+                  data-item-id="{{ it.id }}"
+                  data-item-name="{{ it.name|e }}"
+                  data-kind="{{ plan_kind }}"
+                  data-date="{{ plan_date }}"
+                  data-end="{{ plan_end }}"
+                  data-time="{{ plan_time }}"
+                  data-interval="{{ pl.interval or 1 }}"
+                  data-weekdays="{{ (pl.weekdays or '')|e }}"
+                  data-month-day="{{ pl.month_day or '' }}"
+                  data-note="{{ (pl.note or '')|e }}"
+                  data-all-day="{{ plan_all_day }}"
+                  data-project-id="{{ project.id }}"
+                  data-completed="{{ '1' if pl.completed else '0' }}"
+                  style="background:none;border:none;cursor:pointer;color:#0b5fff;display:inline-flex;align-items:center"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm14.71-9.04a.996.996 0 0 0 0-1.41l-2.5-2.5a.996.996 0 1 0-1.41 1.41l2.5 2.5c.39.39 1.02.39 1.41 0z"/>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="open-plan-modal"
+                  title="Eliminar"
+                  aria-label="Eliminar"
+                  data-mode="delete"
+                  data-plan-id="{{ pl.id }}"
+                  data-item-id="{{ it.id }}"
+                  data-item-name="{{ it.name|e }}"
+                  data-kind="{{ plan_kind }}"
+                  data-date="{{ plan_date }}"
+                  data-end="{{ plan_end }}"
+                  data-time="{{ plan_time }}"
+                  data-interval="{{ pl.interval or 1 }}"
+                  data-weekdays="{{ (pl.weekdays or '')|e }}"
+                  data-month-day="{{ pl.month_day or '' }}"
+                  data-note="{{ (pl.note or '')|e }}"
+                  data-all-day="{{ plan_all_day }}"
+                  data-project-id="{{ project.id }}"
+                  data-completed="{{ '1' if pl.completed else '0' }}"
+                  style="background:none;border:none;cursor:pointer;color:#900;display:inline-flex;align-items:center"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 6h18v2H3V6zm2 3h14l-1 11H6L5 9zm3-6h6v2H8V3z"/>
+                  </svg>
+                </button>
+                <div>
+                  {{ pl.human_readable() }}{% if pl.note %} — {{ pl.note }}{% endif %}
+                </div>
+              </li>
+            {% else %}
+              <li>No hay planificaciones.</li>
+            {% endfor %}
+            </ul>
+          </div>
+        </div>
+      {% endfor %}
+    </section>
+  </article>
+
+  <div id="project-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;padding:24px;overflow:auto">
+    <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:10px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,0.2)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h3 id="project-modal-title" style="margin:0">Proyecto</h3>
+        <button type="button" id="close-project-modal" style="background:none;border:none;font-size:20px;cursor:pointer">×</button>
+      </div>
+      <p id="project-modal-context" style="margin-top:8px;color:#555"></p>
+      <form id="project-modal-form" method="post" action="{{ url_for('project_view', project_id=project.id) }}">
+        <input type="hidden" name="update_project" value="1" id="project-update-flag">
+        <div style="margin-top:8px">
+          <label for="project-modal-name" style="display:block">Nombre</label>
+          <input id="project-modal-name" name="project_name" value="{{ project.name }}" required style="width:100%;max-width:420px;box-sizing:border-box">
+        </div>
+        <div style="margin-top:8px">
+            <label for="project-modal-start-date" style="display:block">Fecha inicio</label>
+            <input id="project-modal-start-date" name="start_date" type="date" value="{{ project.start_date.isoformat() if project.start_date else '' }}">
+          </div>
+          <div style="margin-top:8px">
+            <label for="project-modal-end-date" style="display:block">Fecha fin</label>
+            <input id="project-modal-end-date" name="end_date" type="date" value="{{ project.end_date.isoformat() if project.end_date else '' }}">
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+          <button type="button" id="cancel-project-modal">Cancelar</button>
+          <button type="submit" id="submit-project-modal">Guardar proyecto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="item-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;padding:24px;overflow:auto">
+    <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:10px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,0.2)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h3 id="item-modal-title" style="margin:0">Item</h3>
+        <button type="button" id="close-item-modal" style="background:none;border:none;font-size:20px;cursor:pointer">×</button>
+      </div>
+      <p id="item-modal-context" style="margin-top:8px;color:#555"></p>
+      <form id="item-modal-form" method="post" action="{{ url_for('project_view', project_id=project.id) }}">
+        <input type="hidden" name="update_item_id" id="item-update-id">
+        <div style="margin-top:8px">
+          <label for="item-modal-name" style="display:block">Nombre del item</label>
+          <input id="item-modal-name" name="item_name" required style="width:100%;max-width:420px;box-sizing:border-box">
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+          <button type="button" id="cancel-item-modal">Cancelar</button>
+          <button type="submit" id="submit-item-modal">Guardar item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% include '_plan_modal.html' %}
+
+  <!-- Exceptions management modal -->
+  <div id="exceptions-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1100;padding:24px;overflow:auto">
+    <div style="max-width:760px;margin:40px auto;background:#fff;border-radius:10px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,0.2)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h3 id="exceptions-modal-title" style="margin:0">Excepciones</h3>
+        <button type="button" id="close-exceptions-modal" style="background:none;border:none;font-size:20px;cursor:pointer">×</button>
+      </div>
+      <p id="exceptions-modal-context" style="margin-top:8px;color:#555"></p>
+
+      <div style="margin-top:12px;display:flex;gap:8px;border-bottom:1px solid #eee">
+        <button type="button" id="tab-modified" style="padding:8px 12px;background:none;border:none;cursor:pointer">Modificadas</button>
+        <button type="button" id="tab-deleted" style="padding:8px 12px;background:none;border:none;cursor:pointer">Eliminadas</button>
+      </div>
+
+      <div id="exceptions-content" style="margin-top:12px">
+        <div id="exceptions-modified" style="display:none">
+          <ul id="exceptions-modified-list" style="list-style:none;padding:0;margin:0"></ul>
+        </div>
+        <div id="exceptions-deleted" style="display:none">
+          <ul id="exceptions-deleted-list" style="list-style:none;padding:0;margin:0"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function(){
+    // hide svg fallback when external img loads successfully
+    document.querySelectorAll('.plan-toggle-btn').forEach(function(btn){
+      var img = btn.querySelector('.icon-img');
+      var svg = btn.querySelector('svg');
+      if(!img) return;
+      if(img.complete && img.naturalWidth>0){ if(svg) svg.style.display='none'; }
+      img.addEventListener('load', function(){ if(svg) svg.style.display='none'; });
+      img.addEventListener('error', function(){ img.style.display='none'; });
+    });
+    const container = document.getElementById('item-details');
+    const projectBackdrop = document.getElementById('project-modal-backdrop');
+    const projectForm = document.getElementById('project-modal-form');
+    const projectTitle = document.getElementById('project-modal-title');
+    const projectContext = document.getElementById('project-modal-context');
+    const projectSubmit = document.getElementById('submit-project-modal');
+    const itemBackdrop = document.getElementById('item-modal-backdrop');
+    const itemForm = document.getElementById('item-modal-form');
+    const itemTitle = document.getElementById('item-modal-title');
+    const itemContext = document.getElementById('item-modal-context');
+    const itemSubmit = document.getElementById('submit-item-modal');
+    const backdrop = document.getElementById('plan-modal-backdrop');
+    const form = document.getElementById('plan-modal-form');
+    const title = document.getElementById('plan-modal-title');
+    const context = document.getElementById('plan-modal-context');
+    const submitBtn = document.getElementById('submit-plan-modal');
+    const kindSelect = document.getElementById('modal-kind');
+    const allDayInput = document.getElementById('modal-all-day');
+    const timeInput = document.getElementById('modal-time');
+    const selectedIdFromServer = '{{ selected_item|default("") }}';
+    let currentSelectedItemId = selectedIdFromServer;
+
+    function closeProjectModal(){ projectBackdrop.style.display = 'none'; }
+    function closeItemModal(){ itemBackdrop.style.display = 'none'; }
+
+    function openProjectModal(mode){
+      projectForm.reset();
+      document.getElementById('project-modal-name').value = '{{ project.name|e }}';
+      document.getElementById('project-modal-start-date').value = '{{ project.start_date.isoformat() if project.start_date else '' }}';
+      document.getElementById('project-modal-end-date').value = '{{ project.end_date.isoformat() if project.end_date else '' }}';
+      if(mode === 'edit'){
+        projectTitle.textContent = 'Editar proyecto';
+        projectContext.textContent = 'Modifica los datos del proyecto.';
+        projectForm.action = '{{ url_for('project_view', project_id=project.id) }}';
+        document.getElementById('project-modal-name').disabled = false;
+        document.getElementById('project-modal-end-date').disabled = false;
+        projectSubmit.textContent = 'Guardar proyecto';
+        projectSubmit.style.background = '';
+        projectSubmit.style.color = '';
+      } else {
+        projectTitle.textContent = 'Eliminar proyecto';
+        projectContext.textContent = 'Se eliminarán también todos sus items y planificaciones.';
+        projectForm.action = '{{ url_for('delete_project', project_id=project.id) }}';
+        document.getElementById('project-modal-name').disabled = true;
+        document.getElementById('project-modal-end-date').disabled = true;
+        projectSubmit.textContent = 'Eliminar proyecto';
+        projectSubmit.style.background = '#a40000';
+        projectSubmit.style.color = '#fff';
+      }
+      projectBackdrop.style.display = 'block';
+    }
+
+    function openItemModal(mode, data){
+      itemForm.reset();
+      document.getElementById('item-update-id').value = '';
+      document.getElementById('item-modal-name').value = data.itemName || '';
+      if(mode === 'add'){
+        itemTitle.textContent = 'Añadir item';
+        itemContext.textContent = 'Crea un nuevo item dentro del proyecto.';
+        itemForm.action = '{{ url_for('project_view', project_id=project.id) }}';
+        document.getElementById('item-modal-name').disabled = false;
+        itemSubmit.textContent = 'Añadir item';
+        itemSubmit.style.background = '';
+        itemSubmit.style.color = '';
+      } else if(mode === 'edit'){
+        itemTitle.textContent = 'Editar item';
+        itemContext.textContent = 'Modifica el nombre del item.';
+        itemForm.action = '{{ url_for('project_view', project_id=project.id) }}';
+        document.getElementById('item-update-id').value = data.itemId || '';
+        document.getElementById('item-modal-name').disabled = false;
+        itemSubmit.textContent = 'Guardar item';
+        itemSubmit.style.background = '';
+        itemSubmit.style.color = '';
+      } else {
+        itemTitle.textContent = 'Eliminar item';
+        itemContext.textContent = 'Se eliminarán también todas sus planificaciones.';
+        itemForm.action = '/item/' + data.itemId + '/delete';
+        document.getElementById('item-modal-name').disabled = true;
+        itemSubmit.textContent = 'Eliminar item';
+        itemSubmit.style.background = '#a40000';
+        itemSubmit.style.color = '#fff';
+      }
+      itemBackdrop.style.display = 'block';
+    }
+
+    // Modal logic and wiring moved to shared static/js/plan_modal.js
+
+    document.querySelectorAll('.item-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const id = btn.getAttribute('data-id');
+        currentSelectedItemId = id;
+        const tpl = document.getElementById('details-' + id);
+        if(tpl){
+          container.innerHTML = tpl.innerHTML;
+          if(window.planModal && typeof window.planModal.wireInjectedContent === 'function') window.planModal.wireInjectedContent();
+        }
+        container.scrollIntoView({behavior:'smooth'});
+      });
+    });
+
+    const initialBtn = (selectedIdFromServer ? document.querySelector('.item-btn[data-id="' + selectedIdFromServer + '"]') : null) || document.querySelector('.item-btn');
+    if(initialBtn) initialBtn.click();
+
+    document.getElementById('open-project-edit').addEventListener('click', function(){ openProjectModal('edit'); });
+    document.getElementById('open-project-delete').addEventListener('click', function(){ openProjectModal('delete'); });
+    document.getElementById('close-project-modal').addEventListener('click', closeProjectModal);
+    document.getElementById('cancel-project-modal').addEventListener('click', closeProjectModal);
+    projectBackdrop.addEventListener('mousedown', function(e){ projectBackdrop._md = (e.target === projectBackdrop); });
+    projectBackdrop.addEventListener('click', function(e){ if(e.target === projectBackdrop && projectBackdrop._md) closeProjectModal(); projectBackdrop._md = false; });
+
+    document.getElementById('open-item-add').addEventListener('click', function(){ openItemModal('add', { itemName: '' }); });
+    document.querySelectorAll('.open-item-modal').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        openItemModal(btn.dataset.mode, { itemId: btn.dataset.itemId || '', itemName: btn.dataset.itemName || '' });
+      });
+    });
+    document.getElementById('close-item-modal').addEventListener('click', closeItemModal);
+    document.getElementById('cancel-item-modal').addEventListener('click', closeItemModal);
+    itemBackdrop.addEventListener('mousedown', function(e){ itemBackdrop._md = (e.target === itemBackdrop); });
+    itemBackdrop.addEventListener('click', function(e){ if(e.target === itemBackdrop && itemBackdrop._md) closeItemModal(); itemBackdrop._md = false; });
+
+    kindSelect.addEventListener('change', function(){ if(window.planModal && window.planModal.updateModalVisibility) window.planModal.updateModalVisibility(); });
+    allDayInput.addEventListener('change', function(){ if(window.planModal && window.planModal.updateModalVisibility) window.planModal.updateModalVisibility(); });
+    document.getElementById('close-plan-modal').addEventListener('click', function(){ if(window.planModal && window.planModal.closeModal) window.planModal.closeModal(); });
+    document.getElementById('cancel-plan-modal').addEventListener('click', function(){ if(window.planModal && window.planModal.closeModal) window.planModal.closeModal(); });
+    // modal wiring and toggle wiring are handled by shared script
+
+    // Exceptions modal wiring
+    const excBackdrop = document.getElementById('exceptions-modal-backdrop');
+    const excContext = document.getElementById('exceptions-modal-context');
+    const excModified = document.getElementById('exceptions-modified');
+    const excDeleted = document.getElementById('exceptions-deleted');
+    const excModifiedList = document.getElementById('exceptions-modified-list');
+    const excDeletedList = document.getElementById('exceptions-deleted-list');
+    const tabModified = document.getElementById('tab-modified');
+    const tabDeleted = document.getElementById('tab-deleted');
+
+    function openExceptionsModal(planId){
+      excBackdrop.style.display = 'block';
+      excContext.textContent = 'Excepciones para la planificación ' + planId;
+      // load exceptions via AJAX
+      fetch('/plan/' + planId + '/exceptions')
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          excModifiedList.innerHTML = '';
+          excDeletedList.innerHTML = '';
+          (j.modified || []).forEach(function(ex){
+            const li = document.createElement('li');
+            li.style.padding = '8px 0';
+            const dt = ex.start_dt || '';
+            const tm = ex.time || '';
+            li.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><strong>' + dt + (tm?(' ' + tm):'') + '</strong>' + (ex.note?(' — ' + ex.note):'') + '</div><div style="display:flex;gap:8px"><button class="open-ex-mod" data-ex-id="'+ex.id+'" data-parent-id="'+ex.parent_plan_id+'" data-item-id="'+ex.item_id+'">Editar</button></div></div>';
+            excModifiedList.appendChild(li);
+          });
+          (j.deleted || []).forEach(function(ex){
+            const li = document.createElement('li');
+            li.style.padding = '8px 0';
+            const dt = ex.start_dt || '';
+            const tm = ex.time || '';
+            li.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><strong>' + dt + (tm?(' ' + tm):'') + '</strong>' + (ex.note?(' — ' + ex.note):'') + '</div><div style="display:flex;gap:8px"><button class="restore-ex" data-ex-id="'+ex.id+'">Restaurar</button></div></div>';
+            excDeletedList.appendChild(li);
+          });
+          // show modified tab by default
+          showTab('modified');
+          // wire buttons
+          document.querySelectorAll('.restore-ex').forEach(function(b){ if(b._wired) return; b.addEventListener('click', function(){ const exId = b.dataset.exId; fetch('/exception/' + exId + '/restore', {method:'POST', headers: {'X-Requested-With':'XMLHttpRequest'}}).then(r=>r.json()).then(js=>{ if(js && js.ok){ openExceptionsModal(planId); } else { alert('Error restaurando excepción'); } }).catch(()=>alert('Error restaurando excepción')); }); b._wired = true; });
+          document.querySelectorAll('.open-ex-mod').forEach(function(b){ if(b._wired) return; b.addEventListener('click', function(){ const exId = b.dataset.exId; const parentId = b.dataset.parentId; const itemId = b.dataset.itemId; // fetch exception details and open plan modal as if calendar event
+                fetch('/exception/' + exId + '/get').then(r=>r.json()).then(js=>{ if(js && js.ok){ const ex = js.exception; // open plan modal in edit-occurrence mode; set source to 'exceptions' and remember parent for return
+                      if(window.planModal && window.planModal.openModal){
+                        window.planModal.openModal('edit-occurrence', { planId: parentId, itemId: itemId, itemName: ex.item_name || '', date: ex.start_dt_date || '', time: ex.start_dt_time || '', note: ex.note || '', projectId: ex.project_id || '', exceptionId: exId, source: 'exceptions', return_parent: parentId });
+                        // mark form so it returns to exceptions modal after save
+                        const f = document.getElementById('plan-modal-form'); if(f) f.dataset.returnToExceptionsFor = parentId;
+                      }
+                    } else { alert('No se pudo obtener la excepción'); } }).catch(()=>alert('No se pudo obtener la excepción')); }); b._wired = true; });
+        }).catch(function(){ alert('Error cargando excepciones'); });
+    }
+
+    function showTab(which){ if(which==='modified'){ excModified.style.display='block'; excDeleted.style.display='none'; tabModified.style.fontWeight='600'; tabDeleted.style.fontWeight='normal'; } else { excModified.style.display='none'; excDeleted.style.display='block'; tabModified.style.fontWeight='normal'; tabDeleted.style.fontWeight='600'; } }
+
+    tabModified.addEventListener('click', function(){ showTab('modified'); });
+    tabDeleted.addEventListener('click', function(){ showTab('deleted'); });
+    document.getElementById('close-exceptions-modal').addEventListener('click', function(){ excBackdrop.style.display='none'; });
+
+    excBackdrop.addEventListener('mousedown', function(e){ excBackdrop._md = (e.target === excBackdrop); });
+    excBackdrop.addEventListener('click', function(e){ if(e.target === excBackdrop && excBackdrop._md) excBackdrop.style.display='none'; excBackdrop._md = false; });
+
+    document.querySelectorAll('.open-exceptions-modal').forEach(function(btn){ btn.addEventListener('click', function(){ openExceptionsModal(btn.dataset.planId); }); });
+
+    // if page loaded with ?open_exceptions_for=ID then open it
+    try{
+      const u = new URL(window.location.href);
+      const openFor = u.searchParams.get('open_exceptions_for');
+      if(openFor){ openExceptionsModal(openFor); }
+    }catch(e){}
+  });
+  </script>
+{% endblock %}

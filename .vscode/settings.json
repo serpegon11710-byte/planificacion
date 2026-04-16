@@ -1,0 +1,21 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^c:/Users/serpe/AppData/Local/Python/pythoncore-3\\.11-64/python\\.exe d:/Proyectos/Planificacion/scripts/fetch_calendar\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "Test-Path": true,
+        "&": true,
+        "Get-Command": true,
+        "where": true,
+        "java": true,
+        "/^where gradle; where java; gradle -v; java -version$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "git rev-parse": true,
+        "git add": true,
+        "git commit": true,
+        "git push": true
+    }
+}

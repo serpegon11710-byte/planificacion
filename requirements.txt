@@ -1,0 +1,5 @@
+Flask==2.2.5
+Flask_SQLAlchemy==3.0.2
+python-dateutil==2.8.2
+Flask-Migrate==4.0.4
+alembic==1.12.0

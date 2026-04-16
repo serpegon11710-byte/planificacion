@@ -1,0 +1,17 @@
+# Plantilla para reemplazar literales acentuadas en PowerShell
+# Formato: á = ' + [char-lo-que-corresponda] + '
+
+á = ' + [char]0x00E1 + '
+ç = ' + [char]0x00E7 + '
+é = ' + [char]0x00E9 + '
+í = ' + [char]0x00ED + '
+ñ = ' + [char]0x00F1 + '
+ó = ' + [char]0x00F3 + '
+ú = ' + [char]0x00FA + '
+Á = ' + [char]0x00C1 + '
+Ç = ' + [char]0x00C7 + '
+É = ' + [char]0x00C9 + '
+Í = ' + [char]0x00CD + '
+Ñ = ' + [char]0x00D1 + '
+Ó = ' + [char]0x00D3 + '
+Ú = ' + [char]0x00DA + '

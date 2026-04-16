@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block content %}
+  <article>
+    <h2>Editar planificación</h2>
+    <p><a href="{{ url_for('project_view', project_id=project.id, selected_item=item.id) }}">← Volver al proyecto</a></p>
+    <p><strong>Proyecto:</strong> {{ project.name }}</p>
+    <p><strong>Item:</strong> {{ item.name }}</p>
+
+    {% if form_error %}
+      <div style="background:#ffe6e6;border:1px solid #ffb3b3;padding:8px;border-radius:4px;margin-bottom:8px;color:#900">{{ form_error }}</div>
+    {% endif %}
+
+    <form method="post" id="edit-plan-form">
+      {% set selected_kind = 'once' if plan.kind == 'once' else (plan.freq or 'daily') %}
+      {% set time_value = plan.start_dt.strftime('%H:%M') if plan.start_dt and plan.has_time else '' %}
+      {% set date_value = plan.start_dt.date().isoformat() if plan.start_dt and plan.kind == 'once' else '' %}
+      {% set end_value = plan.end_dt.date().isoformat() if plan.end_dt and plan.kind == 'once' else '' %}
+      {% set daily_value = plan.weekdays if plan.freq == 'daily' and plan.weekdays in ['all', 'weekdays', 'weekend'] else 'all' %}
+
+      <label>Tipo:
+        <select name="kind" required>
+          <option value="once" {% if selected_kind == 'once' %}selected{% endif %}>Puntual</option>
+          <option value="daily" {% if selected_kind == 'daily' %}selected{% endif %}>Diaria</option>
+          <option value="weekly" {% if selected_kind == 'weekly' %}selected{% endif %}>Semanal</option>
+          <option value="monthly" {% if selected_kind == 'monthly' %}selected{% endif %}>Mensual</option>
+        </select>
+      </label>
+
+      <div class="plan-block plan-once" {% if selected_kind != 'once' %}style="display:none"{% endif %}>
+        <label>Fecha: <input name="date" type="date" value="{{ date_value }}"></label>
+        <label>Fin (opcional): <input name="end_dt" type="date" value="{{ end_value }}"></label>
+      </div>
+
+      <div class="plan-block plan-daily" {% if selected_kind != 'daily' %}style="display:none"{% endif %}>
+        <label>Opción diaria:
+          <select name="weekdays">
+            <option value="all" {% if daily_value == 'all' %}selected{% endif %}>Todos los días</option>
+            <option value="weekdays" {% if daily_value == 'weekdays' %}selected{% endif %}>De lunes a viernes</option>
+            <option value="weekend" {% if daily_value == 'weekend' %}selected{% endif %}>Fines de semana</option>
+          </select>
+        </label>
+        <input type="hidden" name="freq" value="daily">
+      </div>
+
+      <div class="plan-block plan-weekly" {% if selected_kind != 'weekly' %}style="display:none"{% endif %}>
+        <label>Intervalo (semanas): <input name="interval" type="number" min="1" value="{{ plan.interval or 1 }}"></label>
+        <label>Día de la semana:
+          <select name="weekdays">
+            {% for day in ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'] %}
+              <option {% if plan.freq == 'weekly' and plan.weekdays == day %}selected{% endif %}>{{ day }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <input type="hidden" name="freq" value="weekly">
+      </div>
+
+      <div class="plan-block plan-monthly" {% if selected_kind != 'monthly' %}style="display:none"{% endif %}>
+        <label>Intervalo (meses): <input name="interval" type="number" min="1" value="{{ plan.interval or 1 }}"></label>
+        <label>Día del mes (1-31): <input name="month_day" type="number" min="1" max="31" value="{{ plan.month_day or (plan.start_dt.day if plan.start_dt else '') }}"></label>
+        <input type="hidden" name="freq" value="monthly">
+      </div>
+
+      <div style="margin-top:6px">
+        <label>Hora: <input name="time_only" type="time" value="{{ time_value }}"></label>
+        <label style="margin-left:12px"><input type="checkbox" name="all_day" {% if plan.all_day or not plan.has_time %}checked{% endif %}> Todo el día</label>
+      </div>
+
+      <div style="margin-top:6px">
+        <label for="edit-note" style="display:block">Nota:</label>
+        <textarea name="note" id="edit-note" rows="4" style="width:100%;max-width:640px;box-sizing:border-box;padding:8px">{{ plan.note or '' }}</textarea>
+      </div>
+
+      <div style="margin-top:10px">
+        <button type="submit">Guardar cambios</button>
+      </div>
+    </form>
+  </article>
+
+  <script>
+    (function(){
+      const form = document.getElementById('edit-plan-form');
+      if(!form) return;
+      const kindSelect = form.querySelector('select[name="kind"]');
+      const timeInput = form.querySelector('input[name="time_only"]');
+      const allDayInput = form.querySelector('input[name="all_day"]');
+
+      function update(){
+        const kind = kindSelect.value;
+        ['once','daily','weekly','monthly'].forEach(function(t){
+          const block = form.querySelector('.plan-' + t);
+          if(block) block.style.display = (t === kind) ? 'block' : 'none';
+        });
+
+        const dateInput = form.querySelector('input[name="date"]');
+        const intervalInputs = form.querySelectorAll('input[name="interval"]');
+        const weeklySelect = form.querySelector('.plan-weekly select[name="weekdays"]');
+        const monthDayInput = form.querySelector('.plan-monthly input[name="month_day"]');
+
+        if(dateInput) dateInput.required = false;
+        intervalInputs.forEach(function(input){ input.required = false; });
+        if(weeklySelect) weeklySelect.required = false;
+        if(monthDayInput) monthDayInput.required = false;
+
+        if(kind === 'once' && dateInput) dateInput.required = true;
+        if(kind === 'weekly') {
+          form.querySelector('.plan-weekly input[name="interval"]').required = true;
+          if(weeklySelect) weeklySelect.required = true;
+        }
+        if(kind === 'monthly') {
+          form.querySelector('.plan-monthly input[name="interval"]').required = true;
+          if(monthDayInput) monthDayInput.required = true;
+        }
+
+        if(timeInput && allDayInput){
+          if(allDayInput.checked){
+            timeInput.disabled = true;
+            timeInput.required = false;
+          } else {
+            timeInput.disabled = false;
+            timeInput.required = true;
+          }
+        }
+      }
+
+      kindSelect.addEventListener('change', update);
+      if(allDayInput) allDayInput.addEventListener('change', update);
+      update();
+    })();
+  </script>
+{% endblock %}

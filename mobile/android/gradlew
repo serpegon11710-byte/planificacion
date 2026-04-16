@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+#############################################################################
+# Gradle wrapper script (minimal, from Gradle distribution)
+#############################################################################
+if [ -z "$JAVA_HOME" ]; then
+  JAVACMD=`which java 2>/dev/null`
+else
+  JAVACMD="$JAVA_HOME/bin/java"
+fi
+
+CLASSPATH="$(dirname "$0")/gradle/wrapper/gradle-wrapper.jar"
+
+exec "$JAVACMD" -cp "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"

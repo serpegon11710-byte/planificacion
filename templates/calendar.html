@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+{% block content %}
+  {% block head_extra %}
+    <script>
+    (function(){
+      try{
+        const url = new URL(window.location.href);
+        const hasProj = url.searchParams.has('project_id') || url.searchParams.has('item_id');
+        const savedProj = localStorage.getItem('calendar.project_id');
+        const savedItem = localStorage.getItem('calendar.item_id');
+        if(!hasProj && savedProj){
+          if(savedProj) url.searchParams.set('project_id', savedProj);
+          if(savedItem) url.searchParams.set('item_id', savedItem);
+          // replace so we don't add a history entry
+          window.location.replace(url.href);
+        }
+      }catch(e){/* ignore */}
+    })();
+    </script>
+  {% endblock %}
+  <section>
+    <h2>Calendario — {% if view == 'day' %}Vista Diaria{% elif view == 'week' %}Vista Semanal{% elif view == 'month' %}Vista Mensual{% else %}{{ view|capitalize }}{% endif %}</h2>
+    <div>
+      <a id="nav-prev" href="/calendar?view={{ view }}&date={{ prev_date.isoformat() }}">← Anterior</a>
+      <a id="nav-next" href="/calendar?view={{ view }}&date={{ next_date.isoformat() }}" style="margin-left:12px">Siguiente →</a>
+      <a id="nav-today" href="/calendar?view={{ view }}&date={{ today.isoformat() }}" style="margin-left:12px">Hoy</a>
+      {% if view == 'week' or view == 'month' %}
+        {% set day_target = start %}
+      {% else %}
+        {% set day_target = ref_date %}
+      {% endif %}
+      <span style="margin-left:24px">
+        <a id="nav-day" href="/calendar?view=day&date={{ day_target.isoformat() }}">Vista Diaria</a> |
+        <a id="nav-week" href="/calendar?view=week&date={{ ref_date.isoformat() }}&target={{ ref_date.isoformat() }}" style="margin-left:12px">Vista Semanal</a> |
+        <a id="nav-month" href="/calendar?view=month&date={{ ref_date.isoformat() }}&target={{ ref_date.isoformat() }}">Vista Mensual</a>
+      </span>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
+      <label>Proyecto:
+        <select id="calendar-project-select">
+          <option value="">Todos</option>
+          {% for p in projects %}
+            <option value="{{ p.id }}" {% if selected_project_id and p.id==selected_project_id %}selected{% endif %}>{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Item:
+        <select id="calendar-item-select" disabled>
+          <option value="">Todos</option>
+        </select>
+      </label>
+      <button id="calendar-clear-filters" type="button">Eliminar filtros</button>
+    </div>
+    <div style="margin-top:12px">
+      <strong>{{ start.strftime('%d/%m/%Y') }}</strong> — <strong>{{ end.strftime('%d/%m/%Y') }}</strong>
+    </div>
+  </section>
+
+  <section>
+    {% for d, events in grouped.items() %}
+      <article class="day-article">
+        <div class="day-header" data-day="{{ d.isoformat() }}">
+          <h4>{{ d.strftime('%A %d/%m/%Y') }}</h4>
+          <div style="display:flex;align-items:center;gap:8px">
+            <small>{{ events|length }} evento{{ '' if events|length==1 else 's' }}</small>
+            <span class="caret">▾</span>
+          </div>
+        </div>
+        <div class="events-list">
+          {% if events %}
+            {% for ev in events %}
+              {% set is_once = ev.plan.kind == 'once' %}
+              {% set expired = is_once and (d < today) and (not ev.plan.completed) %}
+              <div class="event-row">
+                <div class="event-controls">
+                  {% if is_once %}
+                    <button type="button" class="plan-toggle-btn" data-plan-id="{{ ev.plan.id }}" title="{% if ev.plan.completed %}Completado{% elif expired %}Vencido{% else %}Pendiente{% endif %}" style="background:none;border:none;cursor:pointer;display:inline-flex;align-items:center">
+                      {% if ev.plan.completed %}
+                        <img class="icon-img icon-img--checked" src="{{ url_for('static', filename='icons/checkbox-checked.svg') }}" alt="Completado">
+                      {% elif expired %}
+                        <img class="icon-img icon-img--expired" src="{{ url_for('static', filename='icons/triangle-expired.svg') }}" alt="Vencido">
+                      {% else %}
+                        <img class="icon-img icon-img--empty" src="{{ url_for('static', filename='icons/checkbox-empty.svg') }}" alt="Pendiente">
+                      {% endif %}
+                    </button>
+                    <button type="button" class="open-plan-modal" data-source="calendar" data-mode="edit" data-plan-id="{{ ev.plan.id }}" data-item-id="{{ ev.item.id }}" data-item-name="{{ ev.item.name|e }}" data-kind="{{ 'once' if ev.plan.kind == 'once' else (ev.plan.freq or 'daily') }}" data-date="{{ ev.plan.start_dt.date().isoformat() if ev.plan.start_dt and ev.plan.kind=='once' else '' }}" data-end="{{ ev.plan.end_dt.date().isoformat() if ev.plan.end_dt and ev.plan.kind=='once' else '' }}" data-time="{{ ev.plan.start_dt.strftime('%H:%M') if ev.plan.start_dt and ev.plan.has_time else '' }}" data-interval="{{ ev.plan.interval or 1 }}" data-weekdays="{{ ev.plan.weekdays or ''|e }}" data-month-day="{{ ev.plan.month_day or '' }}" data-note="{{ ev.plan.note or ''|e }}" data-all-day="{{ '1' if ev.plan.all_day else '0' }}" data-completed="{{ '1' if ev.plan.completed else '0' }}" data-project-id="{{ ev.item.project.id }}" title="Editar" style="background:none;border:none;cursor:pointer;color:#0b5fff;display:inline-flex;align-items:center;padding:4px">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm14.71-9.04a.996.996 0 0 0 0-1.41l-2.5-2.5a.996.996 0 1 0-1.41 1.41l2.5 2.5c.39.39 1.02.39 1.41 0z"/></svg>
+                    </button>
+                    <button type="button" class="open-plan-modal" data-source="calendar" data-mode="delete" data-plan-id="{{ ev.plan.id }}" data-item-id="{{ ev.item.id }}" data-item-name="{{ ev.item.name|e }}" data-kind="{{ 'once' if ev.plan.kind == 'once' else (ev.plan.freq or 'daily') }}" data-date="{{ ev.plan.start_dt.date().isoformat() if ev.plan.start_dt and ev.plan.kind=='once' else '' }}" data-end="{{ ev.plan.end_dt.date().isoformat() if ev.plan.end_dt and ev.plan.kind=='once' else '' }}" data-time="{{ ev.plan.start_dt.strftime('%H:%M') if ev.plan.start_dt and ev.plan.has_time else '' }}" data-interval="{{ ev.plan.interval or 1 }}" data-weekdays="{{ ev.plan.weekdays or ''|e }}" data-month-day="{{ ev.plan.month_day or '' }}" data-note="{{ ev.plan.note or ''|e }}" data-all-day="{{ '1' if ev.plan.all_day else '0' }}" data-completed="{{ '1' if ev.plan.completed else '0' }}" data-project-id="{{ ev.item.project.id }}" title="Eliminar" style="background:none;border:none;cursor:pointer;color:#900;display:inline-flex;align-items:center;padding:4px">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3V6zm2 3h14l-1 11H6L5 9zm3-6h6v2H8V3z"/></svg>
+                    </button>
+                  {% else %}
+                        <button type="button"
+                          class="open-plan-modal"
+                          data-source="calendar"
+                          data-mode="edit-occurrence"
+                          data-plan-id="{{ ev.plan.id }}"
+                          data-item-id="{{ ev.item.id }}"
+                          data-item-name="{{ ev.item.name|e }}"
+                          data-project-id="{{ ev.item.project.id }}"
+                          data-date="{{ d.isoformat() }}"
+                          data-time="{{ ev.time.strftime('%H:%M') if ev.time else '' }}"
+                          data-note="{{ ev.note or ''|e }}"
+                          title="Editar esta ocurrencia"
+                          style="background:none;border:none;cursor:pointer;color:#0b5fff;display:inline-flex;align-items:center;padding:4px">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm14.71-9.04a.996.996 0 0 0 0-1.41l-2.5-2.5a.996.996 0 1 0-1.41 1.41l2.5 2.5c.39.39 1.02.39 1.41 0z"/></svg>
+                    </button>
+                    <button type="button" class="delete-exception-btn" data-plan-id="{{ ev.plan.id }}" data-item-id="{{ ev.item.id }}" data-item-name="{{ ev.item.name|e }}" data-project-id="{{ ev.item.project.id }}" data-date="{{ d.isoformat() }}" data-time="{{ ev.time.strftime('%H:%M') if ev.time else '' }}" title="Eliminar (excepción)" style="background:none;border:none;cursor:pointer;color:#900;display:inline-flex;align-items:center;padding:4px">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3V6zm2 3h14l-1 11H6L5 9zm3-6h6v2H8V3z"/></svg>
+                    </button>
+                  {% endif %}
+                </div>
+                <div style="flex:1">
+                  <div>
+                    {% if ev.all_day %}
+                      <strong>Todo el día</strong> — 
+                    {% elif ev.time %}
+                      <strong>{{ ev.time.strftime('%H:%M') }}</strong> — 
+                    {% endif %}
+                    <a href="/project/{{ ev.item.project.id }}/">{{ ev.item.project.name }}</a> / {{ ev.item.name }}
+                    {% if ev.note %} — <em>{{ ev.note }}</em>{% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="event-row"><div style="flex:1;color:#666">No hay eventos.</div></div>
+          {% endif %}
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+  {% include '_plan_modal.html' %}
+      <script>
+        document.addEventListener('DOMContentLoaded', function(){
+        // project -> items mapping for client-side population
+        const projectItems = {
+          {% for p in projects %}
+            "{{ p.id }}": [
+              {% for it in p.items %}{"id": "{{ it.id }}", "name": "{{ it.name|e }}"}{% if not loop.last %},{% endif %}{% endfor %}
+            ]{% if not loop.last %},{% endif %}
+          {% endfor %}
+        };
+        const selectedProjectId = {{ selected_project_id if selected_project_id else 'null' }};
+        const selectedItemId = {{ selected_item_id if selected_item_id else 'null' }};
+        document.querySelectorAll('.plan-toggle-btn').forEach(function(b){
+            b.addEventListener('click', function(){
+              const pid = b.dataset.planId;
+              if(!pid) return;
+              fetch('/plan/' + pid + '/toggle_completed', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
+                .then(function(){ location.reload(); })
+                .catch(function(){ location.reload(); });
+            });
+          });
+        // delete-exception buttons for recurring plans
+        document.querySelectorAll('.delete-exception-btn').forEach(function(btn){
+          btn.addEventListener('click', function(e){
+            e.preventDefault();
+            const d = btn.dataset || {};
+            if(!d.planId) return;
+            // open the shared plan modal in delete mode for this exception
+            if(window.planModal && typeof window.planModal.openModal === 'function'){
+              // open the modal as an 'edit-occurrence' but force it to submit a
+              // cancel exception. This shows the modal confirmation UI instead
+              // of a native confirm() prompt, and will POST to the exception
+              // endpoint with type='cancel'.
+              window.planModal.openModal('edit-occurrence', {
+                planId: d.planId || '',
+                itemId: d.itemId || '',
+                itemName: d.itemName || '',
+                date: d.date || '',
+                time: d.time || '',
+                projectId: d.projectId || ''
+              });
+              // ensure hidden 'type' is 'cancel' and update submit button styling
+              setTimeout(function(){
+                var form = document.getElementById('plan-modal-form');
+                if(!form) return;
+                var typ = form.querySelector('input[name="type"]');
+                if(!typ){ typ = document.createElement('input'); typ.type='hidden'; typ.name='type'; form.appendChild(typ); }
+                typ.value = 'cancel';
+                var submit = document.getElementById('submit-plan-modal');
+                if(submit){ submit.textContent = 'Eliminar ocurrencia'; submit.style.background = '#a40000'; submit.style.color = '#fff'; }
+              }, 50);
+            } else {
+              // fallback: create cancel directly
+              const pid = d.planId;
+              const date = d.date;
+              const time = d.time || '';
+              fetch('/plan/' + pid + '/exception', {method:'POST', headers: {'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({date: date, time: time, type: 'cancel'})})
+                .then(function(r){ return r.json(); })
+                .then(function(j){ if(j && j.ok) location.reload(); else { alert('Error: ' + (j && j.error || '')); } })
+                .catch(function(e){ alert('Error creando excepción'); });
+            }
+          });
+        });
+        // hide svg fallback when external img loads successfully (calendar)
+        document.querySelectorAll('.plan-toggle-btn').forEach(function(btn){
+          var img = btn.querySelector('.icon-img');
+          var svg = btn.querySelector('svg');
+          if(!img) return;
+          if(img.complete && img.naturalWidth>0){ if(svg) svg.style.display='none'; }
+          img.addEventListener('load', function(){ if(svg) svg.style.display='none'; });
+          img.addEventListener('error', function(){ img.style.display='none'; });
+        });
+        // wire day header collapse/expand
+        document.querySelectorAll('.day-header').forEach(function(h){
+          var art = h.parentElement;
+          h.addEventListener('click', function(){
+            art.classList.toggle('collapsed');
+            var list = art.querySelector('.events-list');
+            if(list.style.display === 'none'){
+              list.style.display = '';
+            } else {
+              list.style.display = 'none';
+            }
+          });
+        });
+
+        // Filter UI logic (persist in localStorage)
+        const projSel = document.getElementById('calendar-project-select');
+        const itemSel = document.getElementById('calendar-item-select');
+        function populateItems(pid){
+          while(itemSel.firstChild) itemSel.removeChild(itemSel.firstChild);
+          const none = document.createElement('option'); none.value=''; none.textContent='Todos'; itemSel.appendChild(none);
+          if(!pid) { itemSel.disabled = true; return; }
+          const arr = projectItems[pid] || [];
+          arr.forEach(function(it){ const o = document.createElement('option'); o.value = it.id; o.textContent = it.name; itemSel.appendChild(o); });
+          itemSel.disabled = false;
+        }
+        // initialize selects from URL params or localStorage
+        (function initFilters(){
+          const url = new URL(window.location.href);
+          let pid = url.searchParams.get('project_id');
+          let iid = url.searchParams.get('item_id');
+          if(!pid){ pid = localStorage.getItem('calendar.project_id'); }
+          if(pid){ projSel.value = pid; populateItems(pid); }
+          if(!iid){ iid = localStorage.getItem('calendar.item_id'); }
+          if(iid){ itemSel.value = iid; }
+          // if URL lacks params but localStorage had them, reload with params
+          if(!url.searchParams.get('project_id') && pid){ url.searchParams.set('project_id', pid); if(itemSel.value) url.searchParams.set('item_id', itemSel.value); window.location.href = url.href; }
+        })();
+
+        projSel.addEventListener('change', function(){
+          const val = projSel.value;
+          if(val) localStorage.setItem('calendar.project_id', val); else localStorage.removeItem('calendar.project_id');
+          // clear item selection when changing project
+          localStorage.removeItem('calendar.item_id');
+          populateItems(val);
+          // navigate with params
+          const url = new URL(window.location.href);
+          if(val) url.searchParams.set('project_id', val); else url.searchParams.delete('project_id');
+          url.searchParams.delete('item_id');
+          window.location.href = url.href;
+        });
+
+        itemSel.addEventListener('change', function(){
+          const val = itemSel.value;
+          if(val) localStorage.setItem('calendar.item_id', val); else localStorage.removeItem('calendar.item_id');
+          const url = new URL(window.location.href);
+          if(val) url.searchParams.set('item_id', val); else url.searchParams.delete('item_id');
+          window.location.href = url.href;
+        });
+
+        document.getElementById('calendar-clear-filters').addEventListener('click', function(){
+          localStorage.removeItem('calendar.project_id');
+          localStorage.removeItem('calendar.item_id');
+          const url = new URL(window.location.href);
+          url.searchParams.delete('project_id'); url.searchParams.delete('item_id');
+          window.location.href = url.href;
+        });
+        });
+      </script>
+{% endblock %}

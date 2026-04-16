@@ -1,0 +1,78 @@
+<div id="plan-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;padding:24px;overflow:auto">
+  <div style="max-width:720px;margin:40px auto;background:#fff;border-radius:10px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,0.2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <h3 id="plan-modal-title" style="margin:0">Planificación</h3>
+      <button type="button" id="close-plan-modal" style="background:none;border:none;font-size:20px;cursor:pointer">×</button>
+    </div>
+    <p id="plan-modal-context" style="margin-top:8px;color:#555"></p>
+    <div id="plan-modal-error" style="display:none;margin-top:8px;background:#ffe6e6;border:1px solid #ffb3b3;padding:8px;border-radius:4px;color:#900"></div>
+
+    <form id="plan-modal-form" method="post" action="">
+      <input type="hidden" name="plan_item_id" id="modal-plan-item-id">
+      <input type="hidden" name="update_plan_id" id="modal-update-plan-id">
+      <input type="hidden" name="selected_item" id="modal-selected-item-id">
+
+      <label id="modal-kind-row">Tipo:
+        <select name="kind" id="modal-kind" required>
+          <option value="once">Puntual</option>
+          <option value="daily">Diaria</option>
+          <option value="weekly">Semanal</option>
+          <option value="monthly">Mensual</option>
+        </select>
+      </label>
+
+      <div class="modal-plan-block modal-plan-once" style="margin-top:8px">
+        <label>Fecha: <input name="date" id="modal-date" type="date"></label>
+        <label>Fin (opcional): <input name="end_dt" id="modal-end" type="date"></label>
+      </div>
+
+      <div class="modal-plan-block modal-plan-daily" style="display:none;margin-top:8px">
+        <label>Opción diaria:
+          <select name="weekdays" id="modal-daily-weekdays">
+            <option value="all">Todos los días</option>
+            <option value="weekdays">De lunes a viernes</option>
+            <option value="weekend">Fines de semana</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="modal-plan-block modal-plan-weekly" style="display:none;margin-top:8px">
+        <label>Intervalo (semanas): <input name="interval" id="modal-weekly-interval" type="number" min="1" value="1"></label>
+        <label>Día de la semana:
+          <select name="weekdays" id="modal-weekly-weekdays">
+            <option>Lunes</option>
+            <option>Martes</option>
+            <option>Miércoles</option>
+            <option>Jueves</option>
+            <option>Viernes</option>
+            <option>Sábado</option>
+            <option>Domingo</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="modal-plan-block modal-plan-monthly" style="display:none;margin-top:8px">
+        <label>Intervalo (meses): <input name="interval" id="modal-monthly-interval" type="number" min="1" value="1"></label>
+        <label>Día del mes (1-31): <input name="month_day" id="modal-month-day" type="number" min="1" max="31"></label>
+      </div>
+
+      <div style="margin-top:8px">
+        <label>Hora: <input name="time_only" id="modal-time" type="time"></label>
+        <label style="margin-left:12px"><input type="checkbox" name="all_day" id="modal-all-day"> Todo el día</label>
+      </div>
+
+      <div style="margin-top:8px">
+        <label for="modal-note" style="display:block">Nota:</label>
+        <textarea name="note" id="modal-note" rows="4" style="width:100%;max-width:640px;box-sizing:border-box;padding:8px"></textarea>
+      </div>
+      <div style="margin-top:8px">
+        <label style="display:inline-flex;align-items:center;gap:8px"><input type="checkbox" name="completed" id="modal-completed"> Completado</label>
+      </div>
+
+      <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" id="cancel-plan-modal">Cancelar</button>
+        <button type="submit" id="submit-plan-modal">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+  <section>
+    <h2>Crear Proyecto</h2>
+    <form action="/add_project" method="post">
+      <input name="project_name" placeholder="Nombre del proyecto" required>
+      <label style="display:block;margin-top:8px">Fecha inicio: <input name="start_date" type="date"></label>
+      <label style="display:block;margin-top:8px">Fecha fin (opcional): <input name="end_date" type="date"></label>
+      <button type="submit">Crear</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Proyectos</h2>
+      <ul>
+    {% for p in projects %}
+      <li>
+        <a href="/project/{{ p.id }}/">{{ p.name }}</a>
+        {% if p.start_date %} — Inicio: {{ p.start_date.strftime('%d/%m/%Y') }}{% endif %}
+        {% if p.end_date %} — Fin: {{ p.end_date.strftime('%d/%m/%Y') }}{% endif %}
+      </li>
+    {% else %}
+      <li>No hay proyectos todavía.</li>
+    {% endfor %}
+    </ul>
+  </section>
+{% endblock %}
