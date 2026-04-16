@@ -40,12 +40,49 @@ jobs:
             sudo apt-get update && sudo apt-get install -y gradle
           fi
 
+      - name: Install Android SDK command-line tools and packages
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+        run: |
+          set -e
+          SDK_ROOT=${ANDROID_SDK_ROOT}
+          mkdir -p "$SDK_ROOT"
+          cd /tmp
+          # download command line tools
+          CLI_ZIP=commandlinetools.zip
+          curl -sSL -o "$CLI_ZIP" https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q "$CLI_ZIP" -d cmdline-tools-temp
+          mkdir -p "$SDK_ROOT/cmdline-tools/latest"
+          mv cmdline-tools-temp/cmdline-tools/* "$SDK_ROOT/cmdline-tools/latest/"
+          export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses || true
+          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> $GITHUB_ENV
+
+      - name: Ensure gradle-wrapper.jar exists (generate if missing)
+        run: |
+          if [ ! -f mobile/android/gradle/wrapper/gradle-wrapper.jar ]; then
+            echo "gradle-wrapper.jar missing — generating in temp dir"
+            sudo apt-get update && sudo apt-get install -y gradle unzip
+            TMPDIR=$(mktemp -d)
+            pushd "$TMPDIR"
+            gradle wrapper --gradle-version 7.4.2 || true
+            ls -l gradle/wrapper || true
+            mkdir -p $GITHUB_WORKSPACE/mobile/android/gradle/wrapper
+            cp -v gradle/wrapper/gradle-wrapper.jar $GITHUB_WORKSPACE/mobile/android/gradle/wrapper/ || true
+            cp -v gradle/wrapper/gradle-wrapper.properties $GITHUB_WORKSPACE/mobile/android/gradle/wrapper/ || true
+            popd
+          else
+            echo "gradle-wrapper.jar already present"
+          fi
+
       - name: Build APK (assembleDebug)
         working-directory: mobile/android
         run: |
           # Try to use the Gradle wrapper if it exists, otherwise use system Gradle
           if [ -f ./gradlew ]; then
-            ./gradlew assembleDebug --no-daemon
+            chmod +x ./gradlew || true
+            ANDROID_HOME=${ANDROID_SDK_ROOT:-$HOME/Android/Sdk} ./gradlew assembleDebug --no-daemon
           else
             gradle assembleDebug --no-daemon
           fi
