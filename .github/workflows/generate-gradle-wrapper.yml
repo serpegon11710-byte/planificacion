@@ -31,12 +31,12 @@ jobs:
           TMPDIR=$(mktemp -d)
           pushd "$TMPDIR"
           echo "Generating gradle wrapper in $TMPDIR"
-          gradle wrapper --gradle-version 7.4.2
+          gradle wrapper --gradle-version 7.5
           ls -l gradle/wrapper || true
           # ensure destination exists
           mkdir -p $GITHUB_WORKSPACE/mobile/android/gradle/wrapper
+          # Only copy the JAR — never overwrite properties (version is managed in the repo)
           cp -v gradle/wrapper/gradle-wrapper.jar $GITHUB_WORKSPACE/mobile/android/gradle/wrapper/ || true
-          cp -v gradle/wrapper/gradle-wrapper.properties $GITHUB_WORKSPACE/mobile/android/gradle/wrapper/ || true
           # also copy wrapper scripts (gradlew) from current repo if missing - create simple scripts
           if [ ! -f $GITHUB_WORKSPACE/mobile/android/gradlew ]; then
             cp -v $GITHUB_WORKSPACE/mobile/android/gradlew $GITHUB_WORKSPACE/mobile/android/ || true
@@ -51,7 +51,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mobile/android/gradle/wrapper/gradle-wrapper.jar mobile/android/gradle/wrapper/gradle-wrapper.properties || true
+          git add mobile/android/gradle/wrapper/gradle-wrapper.jar || true
           if git diff --staged --quiet; then
             echo "No wrapper changes to commit"
           else
