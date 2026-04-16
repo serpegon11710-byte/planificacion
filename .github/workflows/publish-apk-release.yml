@@ -1,0 +1,37 @@
+name: Publish APK to Release
+
+on:
+  workflow_run:
+    workflows: ["Build Android APK"]
+    types:
+      - completed
+
+jobs:
+  publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: planificacion-apk
+          path: ./artifact
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: apk-build-${{ github.run_id }}
+          release_name: APK build ${{ github.run_id }}
+          body: Automated APK upload from CI build
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload APK to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifact/**/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
