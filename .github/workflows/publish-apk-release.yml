@@ -11,27 +11,24 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Download APK artifact
+      - name: Download APK artifact from build run
         uses: actions/download-artifact@v4
         with:
           name: planificacion-apk
           path: ./artifact
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: List downloaded files
+        run: find ./artifact -type f
+
+      - name: Publish APK as GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-build-${{ github.run_id }}
-          release_name: APK build ${{ github.run_id }}
-          body: Automated APK upload from CI build
-          draft: false
+          tag_name: apk-build-${{ github.event.workflow_run.run_number }}
+          name: "APK build #${{ github.event.workflow_run.run_number }}"
+          body: "Automated debug APK from CI build run #${{ github.event.workflow_run.run_number }}"
           prerelease: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload APK to Release
-        uses: softprops/action-gh-release@v1
-        with:
           files: artifact/**/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
