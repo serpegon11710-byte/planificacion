@@ -66,11 +66,11 @@ jobs:
             sudo apt-get update && sudo apt-get install -y gradle unzip
             TMPDIR=$(mktemp -d)
             pushd "$TMPDIR"
-            gradle wrapper --gradle-version 7.4.2 || true
+            gradle wrapper --gradle-version 7.5 || true
             ls -l gradle/wrapper || true
             mkdir -p $GITHUB_WORKSPACE/mobile/android/gradle/wrapper
             cp -v gradle/wrapper/gradle-wrapper.jar $GITHUB_WORKSPACE/mobile/android/gradle/wrapper/ || true
-            cp -v gradle/wrapper/gradle-wrapper.properties $GITHUB_WORKSPACE/mobile/android/gradle/wrapper/ || true
+            # Do NOT copy properties — keep the version already in the repo
             popd
           else
             echo "gradle-wrapper.jar already present"
