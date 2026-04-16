@@ -2,6 +2,8 @@ name: Generate Gradle Wrapper
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
 jobs:
   generate:
@@ -23,21 +25,33 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gradle
 
-      - name: Generate wrapper
-        working-directory: mobile/android
+      - name: Generate wrapper in temp dir and copy to project
         run: |
+          # Create temporary dir and generate wrapper there to avoid evaluating project build scripts
+          TMPDIR=$(mktemp -d)
+          pushd "$TMPDIR"
+          echo "Generating gradle wrapper in $TMPDIR"
           gradle wrapper --gradle-version 7.4.2
+          ls -l gradle/wrapper || true
+          # ensure destination exists
+          mkdir -p $GITHUB_WORKSPACE/mobile/android/gradle/wrapper
+          cp -v gradle/wrapper/gradle-wrapper.jar $GITHUB_WORKSPACE/mobile/android/gradle/wrapper/ || true
+          cp -v gradle/wrapper/gradle-wrapper.properties $GITHUB_WORKSPACE/mobile/android/gradle/wrapper/ || true
+          # also copy wrapper scripts (gradlew) from current repo if missing - create simple scripts
+          if [ ! -f $GITHUB_WORKSPACE/mobile/android/gradlew ]; then
+            cp -v $GITHUB_WORKSPACE/mobile/android/gradlew $GITHUB_WORKSPACE/mobile/android/ || true
+          fi
+          popd
 
-      - name: Show generated files
+      - name: Show copied files
         run: |
           ls -l mobile/android/gradle/wrapper || true
-          ls -l mobile/android || true
 
       - name: Commit wrapper files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mobile/android/gradlew mobile/android/gradlew.bat mobile/android/gradle/wrapper/gradle-wrapper.jar mobile/android/gradle/wrapper/gradle-wrapper.properties || true
+          git add mobile/android/gradle/wrapper/gradle-wrapper.jar mobile/android/gradle/wrapper/gradle-wrapper.properties || true
           if git diff --staged --quiet; then
             echo "No wrapper changes to commit"
           else
